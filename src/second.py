@@ -50,16 +50,16 @@ for img_name in os.listdir(path):
         center_x = (x1 + x2) // 2
         center_y = (y1 + y2) // 2
 
-        # 🔴 WARUNEK: prawdziwy pieszy
+        #  sprawdzenie czy próg wykrycia jest wystarczający i czy proporcje boxa są dobre
         is_valid_person = (
                 confidence >= 0.75 and
-                aspect_ratio >= 1.5
+                aspect_ratio >= 2
         )
 
         if is_valid_person:
             people_count += 1
 
-            # 🔵 normalny rysunek
+            # normalny rysunek
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
             cv2.circle(frame, (center_x, center_y), 5, (255, 0, 0), -1)
