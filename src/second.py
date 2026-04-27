@@ -22,7 +22,7 @@ for img_name in os.listdir(path):
         continue
 
     # detekcja
-    results = model(img, classes=[0])
+    results = model(img, classes=[0], conf=0.5)
 
     # obraz z bounding boxami
     frame = results[0].plot()
@@ -37,19 +37,33 @@ for img_name in os.listdir(path):
     for box in boxes:
         cls = int(box.cls[0])
 
-        if cls == 0:  # person
+        if cls != 0:
+            continue
+
+        x1, y1, x2, y2 = map(int, box.xyxy[0])
+        width = x2 - x1
+        height = y2 - y1
+
+        confidence = float(box.conf[0])
+        aspect_ratio = height / width if width != 0 else 0
+
+        center_x = (x1 + x2) // 2
+        center_y = (y1 + y2) // 2
+
+        # 🔴 WARUNEK: prawdziwy pieszy
+        is_valid_person = (
+                confidence >= 0.75 and
+                aspect_ratio >= 1.5
+        )
+
+        if is_valid_person:
             people_count += 1
 
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            center_x = (x1 + x2) // 2
-            center_y = (y1 + y2) // 2
+            # 🔵 normalny rysunek
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-            height = y2 - y1
-
-            # rysowanie środka
             cv2.circle(frame, (center_x, center_y), 5, (255, 0, 0), -1)
 
-            # WARNING: blisko środka
             if abs(center_x - screen_center) < 100:
                 cv2.putText(frame,
                             "WARNING: CENTER",
@@ -59,7 +73,6 @@ for img_name in os.listdir(path):
                             (0, 255, 255),
                             2)
 
-            # duży obiekt = blisko
             if height > 0.3 * h:
                 cv2.putText(frame,
                             "COLLISION RISK",
@@ -69,6 +82,10 @@ for img_name in os.listdir(path):
                             (0, 0, 255),
                             3)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 3)
+
+        else:
+            # ⚪ SZARY BOX (odrzucony obiekt)
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (150, 150, 150), 1)
 
     # ostrzeżenie: wykryto pieszego
     if people_count > 0:
