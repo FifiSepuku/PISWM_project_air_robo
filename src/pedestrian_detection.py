@@ -6,7 +6,7 @@ from ultralytics import YOLO
 people_counts = []
 
 # wczytanie modelu YOLO
-model = YOLO("yolov8m.pt")
+model = YOLO("yolov8n.pt")
 
 path = r"G:\Python\Synthia\Stereo_Left\Omni_F"
 
