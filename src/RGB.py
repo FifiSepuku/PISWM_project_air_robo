@@ -3,40 +3,25 @@ import os
 import numpy as np
 from ultralytics import YOLO
 
-# =========================
-# PARAMETERS
-# =========================
-
+# camera parameters
 FOCAL_LENGTH = 532.74
 BASELINE = 0.8
 
-# =========================
-# MODEL
-# =========================
-
+# YOLO model
 model = YOLO("yolov8s.pt")
 
-# =========================
-# PATHS
-# =========================
+# image paths
+left_path = r"E:\git\SYNTHIA-SEQS-04-FALL\SYNTHIA-SEQS-04-FALL\RGB\Stereo_Left\Omni_F"
+right_path = r"E:\git\SYNTHIA-SEQS-04-FALL\SYNTHIA-SEQS-04-FALL\RGB\Stereo_Right\Omni_F"
 
-left_path = r"D:\SYNTHIA-SEQS-04-FALL\RGB\Stereo_Left\Omni_F"
-right_path = r"D:\SYNTHIA-SEQS-04-FALL\RGB\Stereo_Right\Omni_F"
-
-# =========================
-# STEREO MATCHER
-# =========================
-
+# stereo matcher
 stereo = cv2.StereoSGBM_create(
     minDisparity=0,
     numDisparities=128,
     blockSize=5
 )
 
-# =========================
-# MAIN LOOP
-# =========================
-
+# process frames
 for name in os.listdir(left_path):
 
     if not name.endswith(".png"):
@@ -51,29 +36,25 @@ for name in os.listdir(left_path):
     h, w = left.shape[:2]
     frame = left.copy()
 
-    # =========================
-    # DISPARITY
-    # =========================
-
+    # grayscale conversion
     gray_l = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY)
     gray_r = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY)
 
-    disparity = stereo.compute(gray_l, gray_r).astype(np.float32) / 16.0
+    # disparity map
+    disparity = stereo.compute(
+        gray_l,
+        gray_r
+    ).astype(np.float32) / 16.0
 
-    # =========================
-    # YOLO
-    # =========================
-
+    # pedestrian detection
     results = model(left, classes=[0], conf=0.3)
     boxes = results[0].boxes
 
-    # =========================
-    # PROCESS
-    # =========================
-
+    # analyze detections
     for box in boxes:
 
         conf = float(box.conf[0])
+
         if conf < 0.3:
             continue
 
@@ -82,14 +63,11 @@ for name in os.listdir(left_path):
         cx = (x1 + x2) // 2
         cy = (y1 + y2) // 2
 
-        # safety clamp
+        # keep coordinates inside image
         cx = np.clip(cx, 0, w - 1)
         cy = np.clip(cy, 0, h - 1)
 
-        # =========================
-        # DISPARITY ROI
-        # =========================
-
+        # local disparity region
         roi = disparity[cy-5:cy+5, cx-5:cx+5]
 
         if roi.size == 0:
@@ -100,23 +78,32 @@ for name in os.listdir(left_path):
         if d <= 0:
             continue
 
-        # =========================
-        # DEPTH
-        # =========================
-
+        # distance estimation
         distance = (FOCAL_LENGTH * BASELINE) / d
-        distance = float(round(distance, 2))
+        distance = round(float(distance), 2)
 
-        # =========================
-        # DRAW
-        # =========================
-
+        # visualization color
         color = (0, 0, 255) if distance < 8 else (0, 255, 0)
 
-        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+        # bounding box
+        cv2.rectangle(
+            frame,
+            (x1, y1),
+            (x2, y2),
+            color,
+            2
+        )
 
-        cv2.circle(frame, (cx, cy), 4, (255, 0, 0), -1)
+        # center point
+        cv2.circle(
+            frame,
+            (cx, cy),
+            4,
+            (255, 0, 0),
+            -1
+        )
 
+        # distance label
         cv2.putText(
             frame,
             f"{distance:.2f} m",
@@ -127,10 +114,7 @@ for name in os.listdir(left_path):
             2
         )
 
-    # =========================
-    # SHOW
-    # =========================
-
+    # display frame
     cv2.imshow("Stereo Depth", frame)
 
     if cv2.waitKey(50) == 27:
