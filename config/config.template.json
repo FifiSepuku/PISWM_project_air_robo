@@ -1,0 +1,11 @@
+{
+    "left_path": "PUT_LEFT_PATH_HERE",
+    "right_path": "PUT_RIGHT_PATH_HERE",
+    "model_path": "models/yolov8s.pt",
+
+    "focal_length": 532.74,
+    "baseline": 0.8,
+
+    "confidence_threshold": 0.3,
+    "collision_threshold": 8
+}

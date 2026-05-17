@@ -35,13 +35,13 @@ for img_name in os.listdir(rgb_path):
     h, w = img.shape[:2]
     frame = img.copy()
 
-    results = model(img, classes=[0], conf=0.6)
+    results = model(img, classes=[0], conf=0.3)
     boxes = results[0].boxes
 
     for box in boxes:
 
         conf = float(box.conf[0])
-        if conf < 0.75:
+        if conf < 0.3:
             continue
 
         x1, y1, x2, y2 = map(int, box.xyxy[0])

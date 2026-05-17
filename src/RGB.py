@@ -1,18 +1,21 @@
 import cv2
 import os
+import json
 import numpy as np
 from ultralytics import YOLO
+with open("config/config.json", "r") as f:
+    config = json.load(f)
 
 # camera parameters
-FOCAL_LENGTH = 532.74
-BASELINE = 0.8
+FOCAL_LENGTH = config["focal_length"]
+BASELINE = config["baseline"]
 
 # YOLO model
-model = YOLO("yolov8s.pt")
+model = YOLO(config["model_path"])
 
 # image paths
-left_path = r"E:\git\SYNTHIA-SEQS-04-FALL\SYNTHIA-SEQS-04-FALL\RGB\Stereo_Left\Omni_F"
-right_path = r"E:\git\SYNTHIA-SEQS-04-FALL\SYNTHIA-SEQS-04-FALL\RGB\Stereo_Right\Omni_F"
+left_path = config["left_path"]
+right_path = config["right_path"]
 
 # stereo matcher
 stereo = cv2.StereoSGBM_create(
@@ -47,7 +50,7 @@ for name in os.listdir(left_path):
     ).astype(np.float32) / 16.0
 
     # pedestrian detection
-    results = model(left, classes=[0], conf=0.3)
+    results = model(left, classes=[0], conf=config["confidence_threshold"])
     boxes = results[0].boxes
 
     # analyze detections
