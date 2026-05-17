@@ -23,7 +23,26 @@ stereo = cv2.StereoSGBM_create(
     numDisparities=128,
     blockSize=5
 )
-
+#
+"""
+- wczytanie lewego i prawego obrazu stereo,
+- konwersja obrazów do skali szarości,
+- wygenerowanie mapy dysparycji funkcją StereoSGBM,
+- wykrycie ludzi modelem YOLO,
+- dla każdego wykrytego człowieka:
+    - pobiera współrzędne bounding boxa,
+    - wyznacza środek sylwetki,
+    - ogranicza współrzędne do rozmiaru obrazu,
+    - pobiera lokalny fragment mapy dysparycji,
+    - usuwa niepoprawne wartości dysparycji,
+    - oblicza medianę dysparycji,
+    - wyznacza odległość od kamery ze wzoru stereo,
+    - oznacza człowieka na obrazie,
+    - wyświetla dystans w metrach,
+    - zmienia kolor ramki przy małej odległości,
+- wyświetlenie obrazu z nałożonymi informacjami,
+- przejście do kolejnej klatki.
+"""
 # process frames
 for name in os.listdir(left_path):
 

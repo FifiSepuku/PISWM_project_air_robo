@@ -15,6 +15,23 @@ model = YOLO(config["model_path"])
 rgb_path = config["left_path"]
 depth_path = config["depth_path"]
 
+#
+"""
+- wgranie obrazu RGB,
+- wczytanie odpowiadającego mu obrazu depth,
+- wykrycie ludzi modelem YOLO,
+- dla każdego wykrytego człowieka:
+    - pobiera współrzędne bounding boxa,
+    - wyznacza środek sylwetki,
+    - pobiera fragment mapy depth wokół środka,
+    - usuwa błędne wartości depth,
+    - oblicza medianę odległości,
+    - oznacza człowieka na obrazie,
+    - wyświetla dystans w metrach,
+    - zmienia kolor ramki przy małej odległości,
+- wyświetlenie obrazu z nałożonymi informacjami,
+- przejscie do kolejnego obrazu.
+"""
 # process dataset
 for img_name in os.listdir(rgb_path):
 

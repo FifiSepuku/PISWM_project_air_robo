@@ -1,6 +1,7 @@
 {
     "left_path": "PUT_LEFT_PATH_HERE",
     "right_path": "PUT_RIGHT_PATH_HERE",
+    "depth_path": "PUT_DEPTH_PATH_HERE",
     "model_path": "models/yolov8s.pt",
 
     "focal_length": 532.74,
