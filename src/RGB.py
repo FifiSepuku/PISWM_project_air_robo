@@ -3,7 +3,7 @@ import os
 import json
 import numpy as np
 from ultralytics import YOLO
-with open("config/config.json", "r") as f:
+with open("../config/config.json", "r") as f:
     config = json.load(f)
 
 # camera parameters
@@ -58,7 +58,7 @@ for name in os.listdir(left_path):
 
         conf = float(box.conf[0])
 
-        if conf < 0.3:
+        if conf < config["confidence_threshold"]:
             continue
 
         x1, y1, x2, y2 = map(int, box.xyxy[0])
