@@ -32,15 +32,15 @@ stereo = cv2.StereoSGBM_create(
 
 
 
-# TRACK STORAGE
+# PAMIĘĆ TRACKOW
 
 tracks = {}
 next_id = 0
-MAX_MISSING = 0  # mała tolerancja, ale nie 0
+MAX_MISSING = 0  # RESET CO KLATKĘ
 
 
 
-# COLOR (BGR MEDIAN)
+# KOLOR (BGR MEDIANA)
 
 def get_shirt_color(frame, x1, y1, x2, y2):
 
@@ -55,7 +55,7 @@ def get_shirt_color(frame, x1, y1, x2, y2):
     if roi.size == 0:
         return (0, 0, 0)
 
-    # mediana = odporność na cień i szum
+    # mediana
     b = np.median(roi[:, :, 0])
     g = np.median(roi[:, :, 1])
     r = np.median(roi[:, :, 2])
@@ -81,14 +81,14 @@ for name in os.listdir(left_path):
     h, w = frame.shape[:2]
 
     
-    # UI CANVAS
+    # UI PANEL
     
     panel_w = 320
     canvas = np.zeros((h, w + panel_w, 3), dtype=np.uint8)
     canvas[:, :w] = frame
 
     
-    # STEREO DEPTH
+    # GLEBIA STEREO
     
     gray_l = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY)
     gray_r = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY)
@@ -107,7 +107,7 @@ for name in os.listdir(left_path):
 
 
     
-    # DETECTIONS -> 3D + COLOR
+    # DETEKCJE
     
     for box in boxes:
 
@@ -133,7 +133,7 @@ for name in os.listdir(left_path):
 
 
     
-    # MATCHING
+    # SLEDZENIE
     
         for x1, y1, x2, y2, cx, cy, Z, color in detections:
 
@@ -163,20 +163,20 @@ for name in os.listdir(left_path):
                 color_score = min(dc / 441.0, 1.0)
 
                 
-                # WAGI (TWÓJ REQUEST)
+                # WAGI
                 
                 score = (
-                        0.30 * pos_score +
-                        0.30 * z_score +
-                        0.40 * color_score
+                        0.05 * pos_score +
+                        0.05 * z_score +
+                        0.90 * color_score
                 )
 
-                # gate (żeby nie łączyć wszystkiego ze wszystkim)
+                #
                 if pos_dist < 150 and dz < 2.0 and score < best_score:
                     best_score = score
                     best_id = tid
         
-        # NEW TRACK
+        # NOWE SLEDZENIE
         
         if best_id is None:
 
@@ -194,7 +194,7 @@ for name in os.listdir(left_path):
             best_id = tid
 
         
-        # UPDATE TRACK
+        # AKTUALIZACJA
         
         else:
 
@@ -207,13 +207,13 @@ for name in os.listdir(left_path):
         active_ids.add(best_id)
 
         
-        # DRAW PERSON BOX
+        # BOX PIESZEGO
         
         cv2.rectangle(canvas, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
 
     
-    # TRACK LIFETIME MANAGEMENT
+    # USUWANIE TRACKOW
     
     to_delete = []
 
@@ -232,7 +232,7 @@ for name in os.listdir(left_path):
 
 
     
-    # PANEL + POSITION MAP
+    # PANEL + MAPA POZYCJI
     
     panel_positions = {}
     y_offset = 40
@@ -271,7 +271,7 @@ for name in os.listdir(left_path):
 
 
     
-    # LINES PERSON -> PANEL
+    # LINIE WSKAZNIKOW
     
     for tid, t in tracks.items():
 
