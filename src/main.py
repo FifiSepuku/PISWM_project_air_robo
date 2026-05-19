@@ -3,7 +3,7 @@ import cv2
 import os
 from ultralytics import YOLO
 
-# import własnych komponentów systemu
+# import
 from core.frame import ImageFrame
 from core.pipeline import Pipeline
 from detection.yolo_detector import YoloDetector
@@ -18,7 +18,7 @@ from distance.depth import DepthDistanceEstimator
 with open("../config/config.json") as f:
     config = json.load(f)
 
-# załadowanie modelu YOLO do detekcji ludzi
+# załadowanie modelu YOLO
 model = YOLO(config["model_path"])
 
 # inicjalizacja detektora (YOLO + próg pewności)
@@ -56,7 +56,7 @@ for name in os.listdir(config["left_path"]):
     # wczytanie obrazu prawego (stereo)
     right = cv2.imread(os.path.join(config["right_path"], name))
 
-    # wczytanie mapy depth (dla trybu depth-based)
+    # wczytanie mapy depth (dla trybu depth)
     depth = cv2.imread(os.path.join(config["depth_path"], name))
 
     # stworzenie obiektu reprezentującego jedną klatkę danych
