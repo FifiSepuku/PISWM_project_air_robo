@@ -5,9 +5,9 @@ import numpy as np
 from ultralytics import YOLO
 
 
-# =========================
+
 # CONFIG
-# =========================
+
 with open("../config/config.json", "r") as f:
     config = json.load(f)
 
@@ -20,9 +20,9 @@ left_path = config["left_path"]
 right_path = config["right_path"]
 
 
-# =========================
+
 # STEREO
-# =========================
+
 stereo = cv2.StereoSGBM_create(
     minDisparity=0,
     numDisparities=128,
@@ -30,17 +30,17 @@ stereo = cv2.StereoSGBM_create(
 )
 
 
-# =========================
-# TRACKS
-# =========================
+
+# PAMIEC SLEDZENIA
+
 tracks = {}
 next_id = 0
 MAX_MISSING = 2
 
 
-# =========================
-# COLOR (BGR MEDIAN)
-# =========================
+
+# KOLOR (BGR MEDIANA)
+
 def get_shirt_color(frame, x1, y1, x2, y2):
 
     sy1 = y1 + int((y2 - y1) * 0.2)
@@ -61,9 +61,9 @@ def get_shirt_color(frame, x1, y1, x2, y2):
     return (int(b), int(g), int(r))
 
 
-# =========================
+
 # MAIN LOOP
-# =========================
+
 for name in os.listdir(left_path):
 
     if not name.endswith(".png"):
@@ -82,18 +82,18 @@ for name in os.listdir(left_path):
     canvas = np.zeros((h, w + panel_w, 3), dtype=np.uint8)
     canvas[:, :w] = frame
 
-    # =========================
-    # DEPTH
-    # =========================
+    
+    # GLEBIA STEREO
+    
     gray_l = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY)
     gray_r = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY)
 
     disparity = stereo.compute(gray_l, gray_r).astype(np.float32) / 16.0
 
 
-    # =========================
-    # DETECTION
-    # =========================
+    
+    # DETEKCJE
+    
     results = model(left, classes=[0], conf=config["confidence_threshold"])
     boxes = results[0].boxes
 
@@ -101,9 +101,9 @@ for name in os.listdir(left_path):
     active_ids = set()
 
 
-    # =========================
-    # BUILD DETECTIONS
-    # =========================
+    
+    # ODLEGLOSC
+    
     for box in boxes:
 
         x1, y1, x2, y2 = map(int, box.xyxy[0])
@@ -126,9 +126,9 @@ for name in os.listdir(left_path):
         detections.append((x1, y1, x2, y2, cx, cy, Z, color))
 
 
-    # =========================
-    # MATCHING (STABLE)
-    # =========================
+    
+    # SLEDZENIE
+    
     for x1, y1, x2, y2, cx, cy, Z, color in detections:
 
         best_id = None
@@ -155,9 +155,9 @@ for name in os.listdir(left_path):
                 best_id = tid
 
 
-        # =========================
-        # NEW TRACK
-        # =========================
+        
+        # NOWY PIESZY
+        
         if best_id is None:
 
             tid = next_id
@@ -173,9 +173,9 @@ for name in os.listdir(left_path):
 
             best_id = tid
 
-        # =========================
-        # UPDATE TRACK
-        # =========================
+        
+        # AKTUALIZACJA PIESZEGO
+        
         else:
 
             t = tracks[best_id]
@@ -195,9 +195,9 @@ for name in os.listdir(left_path):
         cv2.rectangle(canvas, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
 
-    # =========================
-    # REMOVE LOST TRACKS
-    # =========================
+    
+    # USUWANIE SLEDZENIA
+    
     to_delete = []
 
     for tid, t in tracks.items():
@@ -214,9 +214,9 @@ for name in os.listdir(left_path):
         del tracks[tid]
 
 
-    # =========================
-    # PANEL POSITIONS
-    # =========================
+    
+    # PANEL
+    
     panel_positions = {}
     y_offset = 40
 
@@ -241,9 +241,9 @@ for name in os.listdir(left_path):
         y_offset += 90
 
 
-    # =========================
-    # PREDICTION + VECTOR
-    # =========================
+    
+    # ESTYMACJA POLOZENIA
+    
     for tid, t in tracks.items():
 
         if len(t["history"]) < 2:
@@ -269,16 +269,15 @@ for name in os.listdir(left_path):
         # vector
         cv2.line(canvas, (cx, cy), (px, py), (0, 255, 255), 2)
 
-        # panel link
         if tid in panel_positions:
             panel_x, panel_y = panel_positions[tid]
             cv2.line(canvas, (cx, cy), (panel_x, panel_y), t["color"], 1)
 
 
-    # =========================
+    
     # SHOW
-    # =========================
-    cv2.imshow("Stable 3D Tracking + Prediction", canvas)
+    
+    cv2.imshow("ŚLEDZENIE + PREDYKCJA PRZEMIESZCZENIA", canvas)
 
     if cv2.waitKey(50) == 27:
         break
