@@ -7,7 +7,6 @@ from ultralytics import YOLO
 
 
 # CONFIG
-
 with open("../config/config.json", "r") as f:
     config = json.load(f)
 
@@ -22,7 +21,6 @@ right_path = config["right_path"]
 
 
 # STEREO
-
 stereo = cv2.StereoSGBM_create(
     minDisparity=0,
     numDisparities=128,
@@ -32,7 +30,6 @@ stereo = cv2.StereoSGBM_create(
 
 
 # PAMIEC SLEDZENIA
-
 tracks = {}
 next_id = 0
 MAX_MISSING = 2
@@ -40,7 +37,6 @@ MAX_MISSING = 2
 
 
 # KOLOR (BGR MEDIANA)
-
 def get_shirt_color(frame, x1, y1, x2, y2):
 
     sy1 = y1 + int((y2 - y1) * 0.2)
@@ -63,7 +59,6 @@ def get_shirt_color(frame, x1, y1, x2, y2):
 
 
 # MAIN LOOP
-
 for name in os.listdir(left_path):
 
     if not name.endswith(".png"):
@@ -84,7 +79,6 @@ for name in os.listdir(left_path):
 
     
     # GLEBIA STEREO
-    
     gray_l = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY)
     gray_r = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY)
 
@@ -93,7 +87,6 @@ for name in os.listdir(left_path):
 
     
     # DETEKCJE
-    
     results = model(left, classes=[0], conf=config["confidence_threshold"])
     boxes = results[0].boxes
 
@@ -103,7 +96,6 @@ for name in os.listdir(left_path):
 
     
     # ODLEGLOSC
-    
     for box in boxes:
 
         x1, y1, x2, y2 = map(int, box.xyxy[0])
@@ -128,7 +120,6 @@ for name in os.listdir(left_path):
 
     
     # SLEDZENIE
-    
     for x1, y1, x2, y2, cx, cy, Z, color in detections:
 
         best_id = None
@@ -145,9 +136,9 @@ for name in os.listdir(left_path):
             dc = np.linalg.norm(np.array(color) - pc)
 
             score = (
-                0.30 * min(pos_dist / 150.0, 1.0) +
-                0.30 * min(dz / 3.0, 1.0) +
-                0.40 * min(dc / 441.0, 1.0)
+                0.05 * min(pos_dist / 150.0, 1.0) +
+                0.05 * min(dz / 3.0, 1.0) +
+                0.90 * min(dc / 441.0, 1.0)
             )
 
             if pos_dist < 150 and dz < 2.0 and score < best_score:
@@ -157,7 +148,6 @@ for name in os.listdir(left_path):
 
         
         # NOWY PIESZY
-        
         if best_id is None:
 
             tid = next_id
@@ -277,7 +267,7 @@ for name in os.listdir(left_path):
     
     # SHOW
     
-    cv2.imshow("ŚLEDZENIE + PREDYKCJA PRZEMIESZCZENIA", canvas)
+    cv2.imshow("SLEDZENIE + PREDYKCJA PRZEMIESZCZENIA", canvas)
 
     if cv2.waitKey(50) == 27:
         break
