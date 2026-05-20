@@ -8,7 +8,6 @@ from ultralytics import YOLO
 
 
 # CONFIG
-
 with open("../config/config.json", "r") as f:
     config = json.load(f)
 
@@ -20,28 +19,19 @@ model = YOLO(config["model_path"])
 left_path = config["left_path"]
 right_path = config["right_path"]
 
-
-
-# STEREO
-
+# STEREO - ba
 stereo = cv2.StereoSGBM_create(
     minDisparity=0,
     numDisparities=128,
     blockSize=5
 )
 
-
-
 # PAMIĘĆ TRACKOW
-
 tracks = {}
 next_id = 0
 MAX_MISSING = 0  # RESET CO KLATKĘ
 
-
-
 # KOLOR (BGR MEDIANA)
-
 def get_shirt_color(frame, x1, y1, x2, y2):
 
     sy1 = y1 + int((y2 - y1) * 0.2)
@@ -62,10 +52,7 @@ def get_shirt_color(frame, x1, y1, x2, y2):
 
     return (int(b), int(g), int(r))
 
-
-
 # MAIN LOOP
-
 for name in os.listdir(left_path):
 
     if not name.endswith(".png"):
@@ -82,40 +69,32 @@ for name in os.listdir(left_path):
 
     
     # UI PANEL
-    
     panel_w = 320
     canvas = np.zeros((h, w + panel_w, 3), dtype=np.uint8)
     canvas[:, :w] = frame
 
     
     # GLEBIA STEREO
-    
     gray_l = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY)
     gray_r = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY)
 
+    # zmiana typu danych z int16 na float32 w celu umożliwienia operacji zmiennoprzecinkowych
     disparity = stereo.compute(gray_l, gray_r).astype(np.float32) / 16.0
 
 
     
-    # YOLO
-    
+    # YOLO - w klasie 0 są piesi
     results = model(left, classes=[0], conf=config["confidence_threshold"])
     boxes = results[0].boxes
-
     detections = []
     active_ids = set()
 
-
-    
     # DETEKCJE
-    
     for box in boxes:
 
         x1, y1, x2, y2 = map(int, box.xyxy[0])
-
         cx = (x1 + x2) // 2
         cy = (y1 + y2) // 2
-
         roi = disparity[max(0, cy-5):cy+5, max(0, cx-5):cx+5]
 
         if roi.size == 0:
@@ -126,15 +105,10 @@ for name in os.listdir(left_path):
             continue
 
         Z = (FOCAL_LENGTH * BASELINE) / d
-
         color = get_shirt_color(left, x1, y1, x2, y2)
-
         detections.append((x1, y1, x2, y2, cx, cy, Z, color))
 
-
-    
     # SLEDZENIE
-    
         for x1, y1, x2, y2, cx, cy, Z, color in detections:
 
             best_id = None
@@ -148,36 +122,35 @@ for name in os.listdir(left_path):
 
                 
                 # NORMALIZACJA SKŁADOWYCH
-                
-
-                # 1) POZYCJA (0–1)
+                # 1) POZYCJA (0–1) current - previous, odległość liniowa
                 pos_dist = np.linalg.norm([cx - px, cy - py])
+                # jeżeli różnica w centrach pozycji jest większa niż 150px to
+                # dopasowanie jest uznawane za bardzo złe - duża kara
                 pos_score = min(pos_dist / 150.0, 1.0)
 
                 # 2) ODLEGŁOŚĆ Z (0–1)
                 dz = abs(Z - pz)
+                # jeżeli różnica w dystansie od kamery jest większa
+                # niż 3m to dopasowanie jest uznawane za bardzo złe
                 z_score = min(dz / 3.0, 1.0)
 
-                # 3) KOLOR RGB (0–1)
+                # 3) KOLOR BGR (0–1) na podstawie dystansu euklidesowego
                 dc = np.linalg.norm(np.array(color) - pc)
                 color_score = min(dc / 441.0, 1.0)
 
                 
-                # WAGI
-                
+                # WAGI dopasowane na oko
                 score = (
                         0.05 * pos_score +
                         0.05 * z_score +
                         0.90 * color_score
                 )
 
-                #
                 if pos_dist < 150 and dz < 2.0 and score < best_score:
                     best_score = score
                     best_id = tid
         
         # NOWE SLEDZENIE
-        
         if best_id is None:
 
             tid = next_id
@@ -195,7 +168,6 @@ for name in os.listdir(left_path):
 
         
         # AKTUALIZACJA
-        
         else:
 
             tracks[best_id]["centroid"] = (cx, cy)
@@ -208,13 +180,11 @@ for name in os.listdir(left_path):
 
         
         # BOX PIESZEGO
-        
         cv2.rectangle(canvas, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
 
     
     # USUWANIE TRACKOW
-    
     to_delete = []
 
     for tid, t in tracks.items():
@@ -272,7 +242,6 @@ for name in os.listdir(left_path):
 
     
     # LINIE WSKAZNIKOW
-    
     for tid, t in tracks.items():
 
         if tid not in panel_positions:
