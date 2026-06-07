@@ -200,15 +200,14 @@ for name in os.listdir(left_path):
     for tid in to_delete:
         del tracks[tid]
 
-
-    
     # PANEL + MAPA POZYCJI
-    
+
     panel_positions = {}
     y_offset = 40
 
+    # tworzenie panelu informacyjnego dla każdego śledzonego obiektu
+    # oraz zapis jego pozycji w układzie panelu
     for tid, t in tracks.items():
-
         x_panel = w + 10
         y_panel = y_offset
 
@@ -217,6 +216,7 @@ for name in os.listdir(left_path):
         cx, cy = t["centroid"]
         b, g, r = t["color"]
 
+        # tło panelu dla danego obiektu
         cv2.rectangle(
             canvas,
             (w, y_panel - 25),
@@ -225,23 +225,28 @@ for name in os.listdir(left_path):
             -1
         )
 
+        # identyfikator obiektu
         cv2.putText(canvas, f"ID: {tid}", (x_panel, y_panel),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
 
+        # pozycja piksela obiektu
         cv2.putText(canvas, f"PX: {cx},{cy}", (x_panel, y_panel + 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
+        # estymowana odległość od kamery
         cv2.putText(canvas, f"Z: {t['Z']:.2f}m", (x_panel, y_panel + 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
+        # kolor przypisany do tracka (BGR)
         cv2.putText(canvas, f"BGR: {b},{g},{r}", (x_panel, y_panel + 60),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
+        # przesunięcie kolejnych wpisów w dół panelu
         y_offset += 90
 
+    # LINIE WSKAŹNIKÓW
 
-    
-    # LINIE WSKAZNIKOW
+    # rysowanie połączeń między obiektem a jego wpisem w panelu
     for tid, t in tracks.items():
 
         if tid not in panel_positions:
@@ -250,6 +255,7 @@ for name in os.listdir(left_path):
         px, py = t["centroid"]
         panel_x, panel_y = panel_positions[tid]
 
+        # linia łącząca obiekt z jego informacją na panelu bocznym
         cv2.line(
             canvas,
             (px, py),
