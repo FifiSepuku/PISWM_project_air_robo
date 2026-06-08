@@ -1,4 +1,3 @@
-
 import cv2
 import os
 import json
@@ -19,17 +18,23 @@ model = YOLO(config["model_path"])
 left_path = config["left_path"]
 right_path = config["right_path"]
 
-# STEREO - ba
+
+
+# STEREO
 stereo = cv2.StereoSGBM_create(
     minDisparity=0,
     numDisparities=128,
     blockSize=5
 )
 
-# PAMIĘĆ TRACKOW
+
+
+# PAMIEC SLEDZENIA
 tracks = {}
 next_id = 0
-MAX_MISSING = 0  # RESET CO KLATKĘ
+MAX_MISSING = 2
+
+
 
 # KOLOR (BGR MEDIANA)
 def get_shirt_color(frame, x1, y1, x2, y2):
@@ -45,7 +50,6 @@ def get_shirt_color(frame, x1, y1, x2, y2):
     if roi.size == 0:
         return (0, 0, 0)
 
-    # mediana
     b = np.median(roi[:, :, 0])
     g = np.median(roi[:, :, 1])
     r = np.median(roi[:, :, 2])
@@ -67,8 +71,6 @@ for name in os.listdir(left_path):
     frame = left.copy()
     h, w = frame.shape[:2]
 
-    
-    # UI PANEL
     panel_w = 320
     canvas = np.zeros((h, w + panel_w, 3), dtype=np.uint8)
     canvas[:, :w] = frame
@@ -158,28 +160,33 @@ for name in os.listdir(left_path):
 
             tracks[tid] = {
                 "centroid": (cx, cy),
-                "bbox": (x1, y1, x2, y2),
                 "Z": Z,
                 "color": color,
+                "history": [(cx, cy, Z)],
                 "missing": 0
             }
 
             best_id = tid
 
         
-        # AKTUALIZACJA
+        # AKTUALIZACJA PIESZEGO
+        
         else:
 
-            tracks[best_id]["centroid"] = (cx, cy)
-            tracks[best_id]["bbox"] = (x1, y1, x2, y2)
-            tracks[best_id]["Z"] = Z
-            tracks[best_id]["color"] = color
-            tracks[best_id]["missing"] = 0
+            t = tracks[best_id]
+
+            t["centroid"] = (cx, cy)
+            t["Z"] = Z
+            t["color"] = color
+
+            t["history"].append((cx, cy, Z))
+            if len(t["history"]) > 2:
+                t["history"].pop(0)
+
+            t["missing"] = 0
 
         active_ids.add(best_id)
 
-        
-        # BOX PIESZEGO
         cv2.rectangle(canvas, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
 
@@ -202,6 +209,9 @@ for name in os.listdir(left_path):
 
     # PANEL + MAPA POZYCJI
 
+    
+    # PANEL
+    
     panel_positions = {}
     y_offset = 40
 
@@ -211,10 +221,7 @@ for name in os.listdir(left_path):
         x_panel = w + 10
         y_panel = y_offset
 
-        panel_positions[tid] = (x_panel, y_panel)
-
-        cx, cy = t["centroid"]
-        b, g, r = t["color"]
+        cx, cy, z = *t["centroid"], t["Z"]
 
         # tło panelu dla danego obiektu
         cv2.rectangle(
@@ -249,11 +256,28 @@ for name in os.listdir(left_path):
     # rysowanie połączeń między obiektem a jego wpisem w panelu
     for tid, t in tracks.items():
 
-        if tid not in panel_positions:
+        if len(t["history"]) < 2:
             continue
 
-        px, py = t["centroid"]
-        panel_x, panel_y = panel_positions[tid]
+        (x1, y1, z1), (x2, y2, z2) = t["history"]
+
+        vx = x2 - x1
+        vy = y2 - y1
+        vz = z2 - z1
+
+        cx, cy = t["centroid"]
+
+        px = int(cx + vx * 3)
+        py = int(cy + vy * 3)
+
+        # current
+        cv2.circle(canvas, (cx, cy), 5, (255, 255, 255), -1)
+
+        # prediction
+        cv2.circle(canvas, (px, py), 5, (0, 255, 255), 2)
+
+        # vector
+        cv2.line(canvas, (cx, cy), (px, py), (0, 255, 255), 2)
 
         # linia łącząca obiekt z jego informacją na panelu bocznym
         cv2.line(
@@ -268,7 +292,7 @@ for name in os.listdir(left_path):
     
     # SHOW
     
-    cv2.imshow("RGB Stable Tracking UI", canvas)
+    cv2.imshow("SLEDZENIE + PREDYKCJA PRZEMIESZCZENIA", canvas)
 
     if cv2.waitKey(50) == 27:
         break
