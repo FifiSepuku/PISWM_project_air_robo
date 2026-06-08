@@ -56,8 +56,6 @@ def get_shirt_color(frame, x1, y1, x2, y2):
 
     return (int(b), int(g), int(r))
 
-
-
 # MAIN LOOP
 for name in os.listdir(left_path):
 
@@ -82,27 +80,23 @@ for name in os.listdir(left_path):
     gray_l = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY)
     gray_r = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY)
 
+    # zmiana typu danych z int16 na float32 w celu umożliwienia operacji zmiennoprzecinkowych
     disparity = stereo.compute(gray_l, gray_r).astype(np.float32) / 16.0
 
 
     
-    # DETEKCJE
+    # YOLO - w klasie 0 są piesi
     results = model(left, classes=[0], conf=config["confidence_threshold"])
     boxes = results[0].boxes
-
     detections = []
     active_ids = set()
 
-
-    
-    # ODLEGLOSC
+    # DETEKCJE
     for box in boxes:
 
         x1, y1, x2, y2 = map(int, box.xyxy[0])
-
         cx = (x1 + x2) // 2
         cy = (y1 + y2) // 2
-
         roi = disparity[max(0, cy-5):cy+5, max(0, cx-5):cx+5]
 
         if roi.size == 0:
@@ -114,40 +108,51 @@ for name in os.listdir(left_path):
 
         Z = (FOCAL_LENGTH * BASELINE) / d
         color = get_shirt_color(left, x1, y1, x2, y2)
-
         detections.append((x1, y1, x2, y2, cx, cy, Z, color))
 
-
-    
     # SLEDZENIE
-    for x1, y1, x2, y2, cx, cy, Z, color in detections:
+        for x1, y1, x2, y2, cx, cy, Z, color in detections:
 
-        best_id = None
-        best_score = 1e9
+            best_id = None
+            best_score = 1e9
 
-        for tid, t in tracks.items():
+            for tid, t in tracks.items():
 
-            px, py = t["centroid"]
-            pz = t["Z"]
-            pc = np.array(t["color"])
+                px, py = t["centroid"]
+                pz = t["Z"]
+                pc = np.array(t["color"])
 
-            pos_dist = np.linalg.norm([cx - px, cy - py])
-            dz = abs(Z - pz)
-            dc = np.linalg.norm(np.array(color) - pc)
+                
+                # NORMALIZACJA SKŁADOWYCH
+                # 1) POZYCJA (0–1) current - previous, odległość liniowa
+                pos_dist = np.linalg.norm([cx - px, cy - py])
+                # jeżeli różnica w centrach pozycji jest większa niż 150px to
+                # dopasowanie jest uznawane za bardzo złe - duża kara
+                pos_score = min(pos_dist / 150.0, 1.0)
 
-            score = (
-                0.05 * min(pos_dist / 150.0, 1.0) +
-                0.05 * min(dz / 3.0, 1.0) +
-                0.90 * min(dc / 441.0, 1.0)
-            )
+                # 2) ODLEGŁOŚĆ Z (0–1)
+                dz = abs(Z - pz)
+                # jeżeli różnica w dystansie od kamery jest większa
+                # niż 3m to dopasowanie jest uznawane za bardzo złe
+                z_score = min(dz / 3.0, 1.0)
 
-            if pos_dist < 150 and dz < 2.0 and score < best_score:
-                best_score = score
-                best_id = tid
+                # 3) KOLOR BGR (0–1) na podstawie dystansu euklidesowego
+                dc = np.linalg.norm(np.array(color) - pc)
+                color_score = min(dc / 441.0, 1.0)
 
+                
+                # WAGI dopasowane na oko
+                score = (
+                        0.05 * pos_score +
+                        0.05 * z_score +
+                        0.90 * color_score
+                )
 
+                if pos_dist < 150 and dz < 2.0 and score < best_score:
+                    best_score = score
+                    best_id = tid
         
-        # NOWY PIESZY
+        # NOWE SLEDZENIE
         if best_id is None:
 
             tid = next_id
@@ -186,8 +191,7 @@ for name in os.listdir(left_path):
 
 
     
-    # USUWANIE SLEDZENIA
-    
+    # USUWANIE TRACKOW
     to_delete = []
 
     for tid, t in tracks.items():
@@ -203,6 +207,7 @@ for name in os.listdir(left_path):
     for tid in to_delete:
         del tracks[tid]
 
+    # PANEL + MAPA POZYCJI
 
     
     # PANEL
@@ -210,30 +215,45 @@ for name in os.listdir(left_path):
     panel_positions = {}
     y_offset = 40
 
+    # tworzenie panelu informacyjnego dla każdego śledzonego obiektu
+    # oraz zapis jego pozycji w układzie panelu
     for tid, t in tracks.items():
-
-        panel_positions[tid] = (w + 10, y_offset)
+        x_panel = w + 10
+        y_panel = y_offset
 
         cx, cy, z = *t["centroid"], t["Z"]
 
-        cv2.rectangle(canvas,
-                      (w, y_offset - 25),
-                      (w + panel_w, y_offset + 60),
-                      (30, 30, 30),
-                      -1)
+        # tło panelu dla danego obiektu
+        cv2.rectangle(
+            canvas,
+            (w, y_panel - 25),
+            (w + panel_w, y_panel + 60),
+            (30, 30, 30),
+            -1
+        )
 
-        cv2.putText(canvas, f"ID {tid}", (w + 10, y_offset),
+        # identyfikator obiektu
+        cv2.putText(canvas, f"ID: {tid}", (x_panel, y_panel),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
 
-        cv2.putText(canvas, f"Z {z:.2f}m", (w + 10, y_offset + 20),
+        # pozycja piksela obiektu
+        cv2.putText(canvas, f"PX: {cx},{cy}", (x_panel, y_panel + 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
+        # estymowana odległość od kamery
+        cv2.putText(canvas, f"Z: {t['Z']:.2f}m", (x_panel, y_panel + 40),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+        # kolor przypisany do tracka (BGR)
+        cv2.putText(canvas, f"BGR: {b},{g},{r}", (x_panel, y_panel + 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+
+        # przesunięcie kolejnych wpisów w dół panelu
         y_offset += 90
 
+    # LINIE WSKAŹNIKÓW
 
-    
-    # ESTYMACJA POLOZENIA
-    
+    # rysowanie połączeń między obiektem a jego wpisem w panelu
     for tid, t in tracks.items():
 
         if len(t["history"]) < 2:
@@ -259,9 +279,14 @@ for name in os.listdir(left_path):
         # vector
         cv2.line(canvas, (cx, cy), (px, py), (0, 255, 255), 2)
 
-        if tid in panel_positions:
-            panel_x, panel_y = panel_positions[tid]
-            cv2.line(canvas, (cx, cy), (panel_x, panel_y), t["color"], 1)
+        # linia łącząca obiekt z jego informacją na panelu bocznym
+        cv2.line(
+            canvas,
+            (px, py),
+            (panel_x, panel_y),
+            t["color"],
+            2
+        )
 
 
     
